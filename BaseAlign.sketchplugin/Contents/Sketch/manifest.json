@@ -1,0 +1,23 @@
+{
+  "author" : "",
+  "commands" : [
+    {
+      "script" : "script.cocoascript",
+      "handler" : "onRun",
+      "shortcut" : "command shift b",
+      "name" : "Baseline-align Text Layers",
+      "identifier" : "align-baselines"
+    }
+  ],
+  "menu" : {
+    "items" : [
+      "align-baselines"
+    ],
+    "title" : "BaseAlign"
+  },
+  "identifier" : "com.silverux.sketchplugins.basealign",
+  "version" : "1.0",
+  "description" : "Align Text Layers by their baselines.",
+  "authorEmail" : "aby@silverux.com",
+  "name" : "BaseAlign"
+}

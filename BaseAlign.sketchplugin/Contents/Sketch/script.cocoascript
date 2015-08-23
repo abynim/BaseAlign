@@ -1,0 +1,148 @@
+
+
+var kPluginDomain = "com.silverux.sketchplugins.align-baselines"
+
+var onRun = function(context) {
+
+	var selection = context.selection,
+		doc = context.document,
+		plugin = context.plugin;
+
+	// Check selection
+	if(selection.count() == 0) {
+		doc.showMessage("Select two or more Text Layers, then run the plugin.")
+		return
+	}
+
+	// At least two text layers in selection
+	var textLayerPredicate = NSPredicate.predicateWithFormat("className == 'MSTextLayer'")
+	var sortByYPosition = NSSortDescriptor.sortDescriptorWithKey_ascending("absoluteRect.rulerY", 1)
+	var sortedLayers = selection.filteredArrayUsingPredicate(textLayerPredicate).sortedArrayUsingDescriptors([sortByYPosition])
+	if (sortedLayers.count() < 2) {
+		doc.showMessage("Select two or more Text Layers, then run the plugin.")
+		return
+	}
+
+	// Presets
+	var presets = {
+		lastSelectedAnchorIndex: 0,
+		shouldRoundPosition: true
+	}
+	var userDefaults = initDefaults(kPluginDomain, presets)
+
+	// show config dialog
+	var alert = COSAlertWindow.new()
+	var iconPath = plugin.urlForResourceNamed("icon.png").path()
+	var icon = NSImage.alloc().initByReferencingFile(iconPath)
+	alert.setIcon(icon)
+
+	alert.addButtonWithTitle("Apply")
+	alert.addButtonWithTitle("Cancel")
+	alert.setMessageText("Baseline-align Text Layers")
+	alert.setInformativeText("With multiline text layers, the baseline of the first line will be used for alignment.")
+
+	// Add segmented control
+	var anchorSegControl = NSSegmentedControl.alloc().initWithFrame(NSMakeRect(0,0,140,30))
+	anchorSegControl.setSegmentCount(3)
+	anchorSegControl.setSegmentStyle(NSSegmentStyleTexturedRounded)
+
+	var iconTop = NSImage.alloc().initByReferencingFile(plugin.urlForResourceNamed("icon_top.png").path())
+	var iconMiddle = NSImage.alloc().initByReferencingFile(plugin.urlForResourceNamed("icon_middle.png").path())
+	var iconBottom = NSImage.alloc().initByReferencingFile(plugin.urlForResourceNamed("icon_bottom.png").path())
+	iconTop.setTemplate(true)
+	iconMiddle.setTemplate(true)
+	iconBottom.setTemplate(true)
+
+	anchorSegControl.setImage_forSegment(iconTop, 0)
+	anchorSegControl.setImage_forSegment(iconMiddle, 1)
+	anchorSegControl.setImage_forSegment(iconBottom, 2)
+
+	anchorSegControl.setWidth_forSegment(40, 0)
+	anchorSegControl.setWidth_forSegment(40, 1)
+	anchorSegControl.setWidth_forSegment(40, 2)
+
+	anchorSegControl.setSelected_forSegment(true, userDefaults.lastSelectedAnchorIndex)
+
+	alert.addAccessoryView(anchorSegControl)
+	
+
+	// Add checkbox
+	var checkbox = NSButton.alloc().initWithFrame(NSMakeRect(0,0,200,23))
+	checkbox.setButtonType(NSSwitchButton)
+	checkbox.setBezelStyle(0)
+	checkbox.setTitle("Round to Nearest Pixel Edge")
+	var shouldRound = userDefaults.shouldRoundPosition
+	checkbox.setState( shouldRound ? NSOnState : NSOffState )
+
+	alert.addAccessoryView(checkbox)
+
+
+	var response = alert.runModal()
+
+	if (response == "1000") {
+
+		var firstLayer = sortedLayers.firstObject()
+		var lastLayer = sortedLayers.lastObject()
+
+		// Get anchor position
+		var baselineAnchor = 0
+		
+		var selectedSegment = anchorSegControl.selectedSegment()
+		if (selectedSegment == 1) {
+			// middle
+			var topEdge = firstLayer.absoluteRect().rulerY()
+			baselineAnchor = topEdge + ((lastLayer.absoluteRect().maxY() - topEdge) / 2)
+		} 
+		else {
+			// top or bottom
+			var anchorToLayer = (selectedSegment == 0) ? firstLayer : lastLayer
+			var validLineHeight = anchorToLayer.baseLineHeight() == 0 ? anchorToLayer.defaultLineHeight() : anchorToLayer.baseLineHeight()
+			baselineAnchor = anchorToLayer.absoluteRect().rulerY() + (validLineHeight - anchorToLayer.layoutManager().typesetter().baselineOffsetInLayoutManager_glyphIndex(anchorToLayer.layoutManager(), 0))
+		}
+
+		var roundPixels = checkbox.state == NSOnState
+
+		// reposition layers
+		var loop = [sortedLayers objectEnumerator],
+			validLineHeight, layerBaseline;
+		while (layer = [loop nextObject]) {
+			validLineHeight = layer.baseLineHeight() == 0 ? layer.defaultLineHeight() : layer.baseLineHeight()
+			layerBaseline = baselineAnchor - (validLineHeight - layer.layoutManager().typesetter().baselineOffsetInLayoutManager_glyphIndex(layer.layoutManager(), 0))
+			if(roundPixels) { layerBaseline = Math.round(layerBaseline) }
+			layer.absoluteRect().setRulerY(layerBaseline)
+		}
+
+		userDefaults.lastSelectedAnchorIndex = selectedSegment
+		userDefaults.shouldRoundPosition = roundPixels
+		saveDefaults(userDefaults)
+
+	}
+
+};
+
+
+
+var initDefaults = function(pluginDomain, initialValues) {
+
+	var defaults = [[NSUserDefaults standardUserDefaults] objectForKey:kPluginDomain]
+	var defaultValues = {}
+    var dVal;
+
+    for (var key in defaults) {
+    	defaultValues[key] = defaults[key]
+	}
+
+	for (var key in initialValues) {
+		dVal = defaultValues[key]
+		if (dVal == nil) defaultValues[key] = initialValues[key]
+	}
+
+	return defaultValues
+}
+
+var saveDefaults = function(newValues) {
+	if (kPluginDomain) {
+		var defaults = [NSUserDefaults standardUserDefaults]
+		[defaults setObject: newValues forKey: kPluginDomain];
+	}
+}
