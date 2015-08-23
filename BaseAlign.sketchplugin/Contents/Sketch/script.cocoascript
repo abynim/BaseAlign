@@ -91,7 +91,7 @@ var onRun = function(context) {
 		if (selectedSegment == 1) {
 			// middle
 			var topEdge = firstLayer.absoluteRect().rulerY()
-			baselineAnchor = topEdge + ((lastLayer.absoluteRect().maxY() - topEdge) / 2)
+			baselineAnchor = topEdge + (((lastLayer.absoluteRect().rulerY() + lastLayer.absoluteRect().height()) - topEdge) / 2)
 		} 
 		else {
 			// top or bottom
