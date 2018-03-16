@@ -1,12 +1,13 @@
 
 
-var kPluginDomain = "com.silverux.sketchplugins.align-baselines"
+var kPluginDomain = "com.silverux.sketchplugins.align-baselines";
 
 var onRun = function(context) {
 
 	var selection = context.selection,
 		doc = context.document,
-		plugin = context.plugin;
+		plugin = context.plugin,
+		sketchVersion = getSketchVersionAsInt();
 
 	// Check selection
 	if(selection.count() == 0) {
@@ -93,13 +94,15 @@ var onRun = function(context) {
 		} else {
 			// top or bottom
 			var anchorToLayer = (selectedSegment == 0) ? firstLayer : lastLayer
-			baselineAnchor = anchorToLayer.absoluteRect().rulerY() + anchorToLayer.firstBaselineOffset()
+			var offset = sketchVersion < 480 ? anchorToLayer.firstBaselineOffset() : anchorToLayer.immutableModelObject().textLayout().firstBaselineOffset();
+			baselineAnchor = anchorToLayer.absoluteRect().rulerY() + offset
 		}
 
 		var roundPixels = checkbox.state == NSOnState
-		var loop = sortedLayers.objectEnumerator(), layer, layerPosition;
+		var loop = sortedLayers.objectEnumerator(), layer, layerPosition, offset;
 		while (layer = loop.nextObject()) {
-			layerPosition = baselineAnchor - layer.firstBaselineOffset();
+			offset = sketchVersion < 480 ? layer.firstBaselineOffset() : layer.immutableModelObject().textLayout().firstBaselineOffset();
+			layerPosition = baselineAnchor - offset;
 			if (roundPixels) { layerPosition = Math.round(layerPosition) }
 			layer.absoluteRect().setRulerY(layerPosition)
 		}
@@ -112,7 +115,14 @@ var onRun = function(context) {
 
 };
 
-
+var getSketchVersionAsInt = function() {
+	var versionString = NSBundle.mainBundle().objectForInfoDictionaryKey("CFBundleShortVersionString");
+	var versionNumber = versionString.stringByReplacingOccurrencesOfString_withString(".", "") + ""
+	while(versionNumber.length != 3) {
+		versionNumber += "0"
+	}
+	return parseInt(versionNumber);
+}
 
 var initDefaults = function(pluginDomain, initialValues) {
 
